@@ -27,6 +27,12 @@ PROVIDER = _PROVIDER_ALIASES.get(
 )
 MODEL = os.environ.get("JUDGE_MODEL", _DEFAULT_MODEL.get(PROVIDER, "claude-sonnet-5"))
 
+# Output-token budget. Gemini 2.5 models are *thinking* models: thinking tokens count against
+# max_output_tokens, so a small cap gets exhausted by thinking and the model returns zero content
+# parts — instructor then crashes on `NoneType.parts`. Budget for thinking + the structured JSON,
+# and let it be overridden per environment.
+MAX_TOKENS = int(os.environ.get("JUDGE_MAX_TOKENS", "8192"))
+
 # Model is bound to the client here, so create() below omits it.
 client = instructor.from_provider(f"{PROVIDER}/{MODEL}")
 
@@ -54,7 +60,7 @@ Every violation.evidence MUST be a file path or file:line that appears in the di
 Rules:
 {JUDGE_RULES}"""
     out = client.chat.completions.create(
-        max_tokens=1200,
+        max_tokens=MAX_TOKENS,
         response_model=JudgeOut,
         messages=[{"role": "user", "content": prompt}],
     )

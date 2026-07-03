@@ -80,3 +80,12 @@ Format: `[surface] what I expected → what happened → what would've saved me 
 - **[interpreter] same-env requirement reconfirmed** — reproduced locally: the MCP `command: python`
   must resolve to the exact env `merge-gate` was installed into, or the server dies with
   `No module named 'merge_gate'`. Point `command` at an absolute interpreter if setup uses a venv.
+
+- **[judge] Gemini thinking-model token starvation (real bug, now fixed)** — surfaced by Take 3 on a
+  larger diff: `gemini-2.5-flash` is a *thinking* model spending ~2939 thought tokens, and those count
+  against `max_output_tokens`. The judge hardcoded `max_tokens=1200`, so thinking exhausted the budget,
+  the model returned **zero content parts**, and `instructor` crashed with `'NoneType' object has no
+  attribute 'parts'` — **deterministically, on every retry.** Confirmed via `usage_metadata`. Fixed:
+  `max_tokens` now defaults to **8192** and is overridable via `JUDGE_MAX_TOKENS`. Verified live — the
+  judge returns grounded violations on a ~240-line diff with no crash. (Claude, a non-thinking judge,
+  never hit this; it only bites thinking models on non-trivial diffs.)
