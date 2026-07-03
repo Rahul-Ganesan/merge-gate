@@ -1,0 +1,12 @@
+## Verification gate (required)
+
+Before opening a pull request, call the `merge-gate` MCP tool **`evaluate_diff`** with the
+task description (and `base_ref` if the base branch isn't `origin/main`).
+
+- If `verdict` is `"fail"`, fix every `blocker` violation and call `evaluate_diff` again.
+  Repeat until `verdict` is `"pass"`.
+- Treat `warn` violations as review notes: address them or justify them in the PR body.
+- Paste the final `Verdict` JSON into the PR body as evidence.
+
+The gate runs targeted tests and a rubric judge over your branch diff. Every violation
+cites a real `file:line` from the diff — if it doesn't point at your change, it was dropped.

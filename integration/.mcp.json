@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "merge-gate": {
+      "command": "python",
+      "args": ["-m", "merge_gate.server"],
+      "env": {
+        "JUDGE_PROVIDER": "gemini",
+        "JUDGE_MODEL": "gemini-2.5-flash",
+        "GEMINI_API_KEY": "${GEMINI_API_KEY}"
+      }
+    }
+  }
+}

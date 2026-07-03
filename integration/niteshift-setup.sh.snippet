@@ -1,0 +1,16 @@
+# --- merge-gate MCP tool -------------------------------------------------------
+# Append to niteshift-setup.sh AFTER repo checkout, so the working tree exists when
+# the server boots and `git diff` has something to compare (plan assumption A2).
+
+# Install the gate. Use the [gemini] extra for the Gemini judge (default in .mcp.json);
+# swap for [dev] or bare install if you point JUDGE_PROVIDER at Anthropic instead.
+pip install "merge-gate[gemini] @ git+https://github.com/<you>/merge-gate.git"
+# or, if vendored into the repo:  pip install -e "./merge-gate[gemini]"
+
+# Ensure the diff base exists so evaluate_diff(base_ref="origin/main") resolves.
+git fetch origin main:origin/main || true
+
+# Provider keys are injected via .mcp.json "env" from the task secret store (A3):
+#   Gemini (default):  GEMINI_API_KEY
+#   Anthropic:         set JUDGE_PROVIDER=anthropic + JUDGE_MODEL=claude-sonnet-5 + ANTHROPIC_API_KEY
+# -------------------------------------------------------------------------------
