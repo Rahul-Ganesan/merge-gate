@@ -44,10 +44,39 @@ Format: `[surface] what I expected → what happened → what would've saved me 
 - **Live result:** good branch -> pass (1.0); bad branch -> fail (0.75) on a real Gemini-generated
   `has_tests` blocker, grounded at src/app/pagination.py. Grounding guard held on live output.
 
-## Niteshift integration assumptions to verify (from plan §11) — TBD during steps 10–12
+## Niteshift integration assumptions — verified live (happy-path task, PR #1)
 
-- **A1** project-scoped MCP via repo-root `.mcp.json` — unverified
-- **A2** `niteshift-setup.sh` runs after checkout (working tree present) — unverified
-- **A3** MCP server env inherits the task secret store — unverified
-- **A4** per-tool-call timeout ≥ ~90s — unverified
-- **A5** a way to make the gate *required*, not just prompted via CLAUDE.md — unverified (strategic)
+- **A1 — REFUTED (headline).** A repo-root `.mcp.json` is **not** auto-loaded. Niteshift registers
+  MCP servers **only via the dashboard** (Settings → Repositories → [repo] → MCP Servers → Add
+  custom server → `stdio`: command/args/env). The committed `.mcp.json` is just the source of truth
+  for those fields. The gate only appeared once registered in the UI.
+  Ref: docs.niteshift.dev/customizing-agents/mcp
+- **A2 — CONFIRMED.** `niteshift-setup.sh` runs after checkout, before the agent: the setup log
+  shows `pip install` then `git fetch origin main:origin/main` succeeding, and the gate diffed
+  against `origin/main`. Docs: setup script runs as root, after clone, before the agent starts.
+- **A3 — CONFIRMED.** MCP server inherited the secret store: the Gemini judge ran and returned a
+  grounded verdict (score 1.0, 0 violations), so `${GEMINI_API_KEY}` resolved from the **Agent-scope**
+  env var into the MCP server. (Setup-scope vs. Agent-scope is a real distinction — key must be Agent.)
+- **A4 — not stressed.** Eval finished in ~3s (`duration_s` 2.99); no timeout hit. Long-eval limit
+  still unverified.
+- **A5 — still open (strategic).** The agent *did* call the gate, but only because CLAUDE.md prompted
+  it — nothing *enforced* it. It could have opened the PR without calling `evaluate_diff`. This stays
+  the roadmap question for Conor: a first-class **required** verification step.
+
+## Niteshift live-run findings (new, from the happy-path task)
+
+- **[setup] app deps not installed by the gate snippet** — the setup script installed only
+  `merge-gate`, not SENTINEL's own `requirements.txt`, so the gate's *targeted tests* had nothing to
+  import until the agent hand-installed app deps. Silent false-negative risk: without that manual
+  step the targeted tests would error/no-op and the gate could false-green. **Fix:** the setup script
+  must install the target repo's own deps (`pip install -r requirements.txt` / `-e .`) independently
+  of the gate. (Applied to `niteshift-setup.sh`.)
+- **[setup] can't uninstall debian-managed `typing_extensions`** — `pip` failed to upgrade
+  `typing_extensions 4.10.0` ("no RECORD file… installed by debian"). Non-fatal here, but any dep
+  needing a newer version will break. Mitigate by installing into an isolated venv/uv env rather than
+  the system site-packages, or `pip install --ignore-installed typing_extensions`.
+- **[setup] log stream appears to hang after `git fetch`** — setup log stalled after the fetch line;
+  unclear if setup or the log pipe. Watch for perceived hangs vs. real ones during the recording.
+- **[interpreter] same-env requirement reconfirmed** — reproduced locally: the MCP `command: python`
+  must resolve to the exact env `merge-gate` was installed into, or the server dies with
+  `No module named 'merge_gate'`. Point `command` at an absolute interpreter if setup uses a venv.
